@@ -17,51 +17,28 @@
 #ifndef __Base_Hash_h
 #define __Base_Hash_h
 
-#include "Base/compat/stdint.h"
+#include <stdint.h>
 
 namespace Base
 {
   template<typename T>
-  int getHash(T& value)
+  int getHash(T const& value)
   {
     return value.getHash();
   }
 
   template<>
-  int getHash<uint32_t>(uint32_t& value)
-  {
-    return static_cast<int>(value);
-  }
-
+  int getHash<uint32_t>(uint32_t const& value);
   template<>
-  int getHash<int32_t>(int32_t& value)
-  {
-    return static_cast<int>(value);
-  }
-
+  int getHash<int32_t>(int32_t const& value);
   template<>
-  int getHash<uint16_t>(uint16_t& value)
-  {
-    return static_cast<int>(value);
-  }
-
+  int getHash<uint16_t>(uint16_t const& value);
   template<>
-  int getHash<int16_t>(int16_t& value)
-  {
-    return static_cast<int>(value);
-  }
-
+  int getHash<int16_t>(int16_t const& value);
   template<>
-  int getHash<uint8_t>(uint8_t& value)
-  {
-    return static_cast<int>(value);
-  }
-  
+  int getHash<uint8_t>(uint8_t const& value);
   template<>
-  int getHash<int8_t>(int8_t& value)
-  {
-    return static_cast<int>(value);
-  }
+  int getHash<int8_t>(int8_t const& value);
 
   class Hash {
 

@@ -35,6 +35,11 @@ namespace Base
       {
         return Char::isLetter(ch) || Char::isDigit(ch);
       }
+
+      static constexpr bool isWhitespace(char ch)
+      {
+        return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+      }
   };
 }
 

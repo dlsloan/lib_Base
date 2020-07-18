@@ -29,6 +29,8 @@ namespace Base {
       virtual ~Stringable(){}
   };
 
+  String operator+(char const* lhs, String const& rhs);
+
   class String : public Stringable {
     public:
       String();
@@ -49,20 +51,38 @@ namespace Base {
       String replace(char const* find, char const* replace) const;
       String replace(String const& find, String const& replace) const;
 
+      String ltrim();
+      String rtrim();
+      String trim();
+
+      off_t indexOf(const char* str);
+      off_t indexOfR(const char* str);
+      off_t indexOf(String const& str) { return indexOf(str.c_str()); }
+      off_t indexOfR(String const& str) { return indexOfR(str.c_str()); }
+
       List<String> split(char const* separator) const;
       List<String> split(String const& separator) const;
 
       bool startsWith(char const* value) const;
       bool startsWith(String const& value) const;
 
+      bool endsWith(char const* value) const;
+      bool endsWith(String const& value) const;
+
       size_t length() const;
       char const* c_str() const;
       void copyTo(char* charBuffer) const;
       String toString() const override { return *this; }
 
+      int getHash() const;
+
       String operator+(String const& value) const;
       String operator+(char const* value) const;
       String operator+(char value) const;
+      friend String operator+(char const* lhs, String const& rhs)
+      {
+	      return String(lhs, rhs.chars_, rhs.length_);
+      }
 
       String& operator+= (String const& value);
       String& operator+= (char const* value);
@@ -81,6 +101,7 @@ namespace Base {
       size_t size_;
 
       String(char const* inner1, size_t len1, char const* inner2, size_t len2);
+      String(char const* inner1, char const* inner2, size_t len2);
       String(char const* inner1, size_t len1);
 
       bool partEq(char const* inner, char const* test, size_t testLen) const;
