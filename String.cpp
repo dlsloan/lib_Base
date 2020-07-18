@@ -14,6 +14,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "Base/Char.h"
 #include "Base/String.h"
 
 #include <string.h>
@@ -70,6 +71,21 @@ String::String(char const* inner1, size_t len1, char const* inner2, size_t len2)
   length_(len1 + len2),
   size_(len1 + len2 + 1)
 {
+  chars_ = new char[size_];
+  if (inner1 != nullptr)
+    memcpy(chars_, inner1, len1);
+  memcpy(chars_ + len1, inner2, len2);
+  chars_[length_] = '\0';
+}
+
+String::String(char const* inner1, char const* inner2, size_t len2) :
+  chars_(nullptr),
+  length_(len2),
+  size_(len2 + 1)
+{
+  size_t len1 = strlen(inner1);
+  length_ += len1;
+  size_ += len1;
   chars_ = new char[size_];
   if (inner1 != nullptr)
     memcpy(chars_, inner1, len1);
@@ -174,6 +190,92 @@ String String::replace(String const& find, String const& replace) const
   return ret;
 }
 
+String String::ltrim()
+{
+  if (length_ == 0 || !Char::isWhitespace((*this)[0]))
+	return *this;
+  for (off_t i = 1; i < (ssize_t)length_; i++) {
+    if (!Char::isWhitespace((*this)[i]))
+      return this->substring(i);
+  }
+  return "";
+}
+
+String String::rtrim()
+{
+  if (length_ == 0 || !Char::isWhitespace((*this)[-1]))
+    return *this;
+  for (off_t i = -1; i > 0; i--) {
+    if (!Char::isWhitespace((*this)[i]))
+      return this->substring(0, length_ + i + 1);
+  }
+  return "";
+}
+
+String String::trim()
+{
+  off_t lhs = length_;
+  if (length_ == 0 ||
+      (!Char::isWhitespace((*this)[0]) && !Char::isWhitespace((*this)[-1])))
+    return *this;
+  for (off_t i = 0; i < (ssize_t)length_; i++) {
+    if (!Char::isWhitespace((*this)[i])) {
+      lhs = i;
+      break;
+    }
+  }
+  off_t rhs = 0;
+  for (off_t i = length_ - 1; i >= 0; i--) {
+    if (!Char::isWhitespace((*this)[i])) {
+      rhs = i;
+      break;
+    }
+  }
+  if (rhs <= lhs)
+    return "";
+  return this->substring(lhs, rhs - lhs + 1);
+}
+
+off_t String::indexOf(const char* str) {
+  size_t len = strlen(str);
+  if (len == 0)
+    return 0;
+  for (off_t i = 0; i < (ssize_t)(length_ - len); i++) {
+    if ((*this)[i] == str[0]) {
+      bool found = true;
+      for (off_t j = 0; j < (ssize_t)len; j++) {
+        if ((*this)[i+j] != str[j]) {
+          found = false;
+	  break;
+	}
+      }
+      if (found)
+        return i;
+    }
+  }
+  return -1;
+}
+
+off_t String::indexOfR(const char* str) {
+  size_t len = strlen(str);
+  if (len == 0)
+    return -1;
+  for (off_t i = -1; i >= (ssize_t)length_; i--) {
+    if ((*this)[i] == str[len + i]) {
+      bool found = true;
+      for (off_t j = 0; j < (ssize_t)len; j++) {
+        if ((*this)[i-j] == str[len-j-1]) {
+          found = false;
+	  break;
+	}
+      }
+      if (found)
+        return i;
+    }
+  }
+  return 0;
+}
+
 List<String> String::split(char const* separator) const
 {
   assert(separator != nullptr);
@@ -245,6 +347,33 @@ bool String::startsWith(String const& value) const
   return true;
 }
 
+bool String::endsWith(char const* value) const
+{
+  ssize_t len = strlen(value);
+  if (len > (ssize_t)length_)
+    return false;
+  off_t start = length_ - len;
+  for (off_t i = start; i < (ssize_t)length_; ++i)
+  {
+    if (chars_[i] != value[i - start])
+      return false;
+  }
+  return true;
+}
+
+bool String::endsWith(String const& value) const
+{
+  if (value.length_ > length_)
+    return false;
+  off_t start = length_ - value.length_;
+  for (off_t i = start; i < (ssize_t)length_; ++i)
+  {
+    if (chars_[i] != value.chars_[i - start])
+      return false;
+  }
+  return true;
+}
+
 void String::copyTo(char* charBuffer) const
 {
   if (chars_ == nullptr)
@@ -265,6 +394,16 @@ char const* String::c_str() const
 size_t String::length() const
 {
   return length_;
+}
+
+int String::getHash() const
+{
+  int hash = 0;
+  for (off_t i = 0; i < (ssize_t)this->length(); i++) {
+    hash = (hash << 1) | (hash >> (sizeof(hash) * 8 - 1));
+    hash ^= (*this)[i];
+  }
+  return hash;
 }
 
 String& String::operator= (String const& value)
@@ -412,7 +551,11 @@ bool String::operator!=(char const* other) const
 char String::operator[] (const off_t index) const
 {
   assert(index < (ssize_t)length_);
-  return chars_[index];
+  assert(index >= -(ssize_t)length_);
+  if (index < 0)
+    return chars_[length_ + index];
+  else
+    return chars_[index];
 }
 
 String::~String()

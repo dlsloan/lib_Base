@@ -84,7 +84,7 @@ namespace Base
       {
         setMinSize(count_ + 1);
         off_t pos = first_ + (count_++);
-        if (pos >= size_) pos -= size_;
+        if (pos >= (ssize_t)size_) pos -= size_;
         items_[pos] = item;
       }
 
@@ -118,7 +118,7 @@ namespace Base
         assert(count_ > 0);
         T val = items_[first_];
         first_ += 1;
-        if (first_ >= size_) first_ = 0;
+        if (first_ >= (ssize_t)size_) first_ = 0;
         count_ -= 1;
         return val;
       }
@@ -141,17 +141,17 @@ namespace Base
         count_ -= count;
       }
 
-      size_t getCount() const
+      size_t count() const
       {
         return count_;
       }
 
-      size_t getSize() const
+      size_t size() const
       {
         return size_;
       }
 
-      void setSize(size_t size)
+      void size(size_t size)
       {
         assert(size >= count_);
         if (size_ == size) return;
@@ -166,9 +166,9 @@ namespace Base
 
       T& operator[] (off_t index) const
       {
-        assert(index < count_);
+        assert(index < (ssize_t)count_);
         off_t pos = index + first_;
-        if (pos >= size_) pos -= size_;
+        if (pos >= (ssize_t)size_) pos -= size_;
         return items_[pos];
       }
 

@@ -24,6 +24,9 @@
 namespace Base
 {
   template <typename T>
+  class ListIter;
+
+  template <typename T>
   class List {
     public:
       List(T const* items, size_t count, size_t containerSize = 0) :
@@ -33,7 +36,7 @@ namespace Base
       {
         assert(items != nullptr);
         items_ = new T[size_];
-        for (off_t i = 0; i < count; ++i)
+        for (off_t i = 0; i < (ssize_t)count; ++i)
           items_[i] = items[i];
       }
 
@@ -58,7 +61,7 @@ namespace Base
 
       List<T>& operator= (List<T> const& value)
       {
-        setMinSize(value.count_);
+        minSize(value.count_);
         for (size_t i = 0; i < value.count_; ++i)
           items_[i] = value.items_[i];
         count_ = value.count_;
@@ -67,14 +70,14 @@ namespace Base
 
       void add(T const& item)
       {
-        setMinSize(count_ + 1);
+        minSize(count_ + 1);
         items_[count_++] = item;
       }
 
       void add(T const* items, size_t count = 1)
       {
         assert(items != nullptr);
-        setMinSize(count_ + count);
+        minSize(count_ + count);
         for (off_t i = 0; i < count; ++i)
           items_[i + count_] = items[i];
         count_ += count;
@@ -82,7 +85,7 @@ namespace Base
 
       void add(List<T> const& items)
       {
-        setMinSize(count_ + items.count_);
+        minSize(count_ + items.count_);
         for (off_t i = 0; i < items.count_; ++i)
           items_[i + count_] = items.items_[i];
         count_ += items.count_;
@@ -110,17 +113,17 @@ namespace Base
         return List<T>(items_ + index, length);
       }
 
-      size_t getCount() const
+      size_t count() const
       {
         return count_;
       }
 
-      size_t getSize() const
+      size_t size() const
       {
         return size_;
       }
 
-      void setSize(size_t size)
+      void size(size_t size)
       {
         assert(size >= count_);
         if (size_ == size) return;
@@ -135,7 +138,16 @@ namespace Base
       T& operator[] (off_t index) const
       {
         assert(index < (ssize_t)count_);
-        return items_[index];
+	assert(index >= -(ssize_t)count_);
+	if (index < 0)
+	  return items_[count_ + index];
+	else
+          return items_[index];
+      }
+
+      ListIter<T> Iter() const
+      {
+        return ListIter<T>(*this);
       }
 
       List<T> operator+(List<T> const& value) const
@@ -174,7 +186,7 @@ namespace Base
       size_t count_;
       size_t size_;
 
-      void setMinSize(size_t size)
+      void minSize(size_t size)
       {
         if (items_ == nullptr)
         {
@@ -191,6 +203,19 @@ namespace Base
           items_ = newItems;
         }
       }
+  };
+
+  template <typename T>
+  class ListIter {
+    public:
+      off_t i;
+
+      ListIter(T const& lst) :
+        i(0),
+        lst_(&lst) 
+      {}
+    private:
+      List<T> lst_;
   };
 }
 
