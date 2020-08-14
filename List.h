@@ -20,6 +20,7 @@
 #include "Base/compat/stdint.h"
 #include <algorithm>
 #include <assert.h>
+#include <stdlib.h>
 
 namespace Base
 {
@@ -35,9 +36,19 @@ namespace Base
         size_(std::max(count, containerSize))
       {
         assert(items != nullptr);
-        items_ = new T[size_];
-        for (off_t i = 0; i < (ssize_t)count; ++i)
-          items_[i] = items[i];
+        items_ = (T*)malloc(sizeof(T) * size_);
+        if (items_ == nullptr)
+          throw std::bad_alloc();
+        for (off_t i = 0; i < (ssize_t)count; ++i) {
+          try {
+            new (&items_[i])T(items[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              items_[j].~T();
+            free(items_);
+            throw;
+          }
+        }
       }
 
       List(size_t containerSize = 0) :
@@ -45,8 +56,11 @@ namespace Base
         count_(0),
         size_(containerSize)
       {
-        if (size_ > 0)
-          items_ = new T[size_];
+        if (size_ > 0) {
+          items_ = (T*)malloc(sizeof(T) * size_);
+          if (items_ == nullptr)
+            throw std::bad_alloc();
+        }
       }
 
       List(List<T> const& value) :
@@ -54,16 +68,38 @@ namespace Base
         count_(value.count_),
         size_(value.size_)
       {
-        items_ = new T[size_];
-        for (off_t i = 0; i < (ssize_t)count_; ++i)
-          items_[i] = value.items_[i];
+        items_ = (T*)malloc(sizeof(T) * size_);
+        if (items_ == nullptr)
+          throw std::bad_alloc();
+        for (off_t i = 0; i < (ssize_t)count_; ++i) {
+          try {
+            new (&items_[i])T(value.items_[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              items_[j].~T();
+            free(items_);
+            throw;
+          }
+        }
       }
 
       List<T>& operator= (List<T> const& value)
       {
         minSize(value.count_);
-        for (size_t i = 0; i < value.count_; ++i)
+        off_t i;
+        for (i = 0; i < (ssize_t)count_ && i < (ssize_t)value.count_; ++i)
           items_[i] = value.items_[i];
+        for (; i < (ssize_t)value.count_; i++) {
+          try {
+            new (&items_[i])T(value.items_[i]);
+          } catch (...) {
+            for (off_t j = count_; j < i; j++)
+              items_[j].~T();
+            throw;
+          }
+        }
+        for (; i < (ssize_t)count_; i++)
+          items_[i].~T();
         count_ = value.count_;
         return *this;
       }
@@ -71,23 +107,38 @@ namespace Base
       void add(T const& item)
       {
         minSize(count_ + 1);
-        items_[count_++] = item;
+        new (&items_[count_])T(item);
+        count_++;
       }
 
       void add(T const* items, size_t count = 1)
       {
         assert(items != nullptr);
         minSize(count_ + count);
-        for (off_t i = 0; i < count; ++i)
-          items_[i + count_] = items[i];
+        for (off_t i = 0; i < count; ++i) {
+          try {
+            new (&items_[i + count_])T(items[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              items_[j + count_].~T();
+            throw;
+          }
+        }
         count_ += count;
       }
 
       void add(List<T> const& items)
       {
         minSize(count_ + items.count_);
-        for (off_t i = 0; i < items.count_; ++i)
-          items_[i + count_] = items.items_[i];
+        for (off_t i = 0; i < (ssize_t)items.count_; ++i) {
+          try {
+            new (&items_[i + count_])T(items.items_[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              items_[j + count_].~T();
+            throw;
+          }
+        }
         count_ += items.count_;
       }
 
@@ -95,8 +146,10 @@ namespace Base
       {
         assert(index + length <= count_);
         if (length == 0) return;
-        for (uint64_t i = index; i < count_ - length; ++i)
+        for (off_t i = index; i < (ssize_t)(count_ - length); ++i)
           items_[i] = items_[i + length];
+        for (off_t i = count_ - length; i < (ssize_t)count_; i++)
+          items_[i].~T();
         count_ -= length;
       }
       
@@ -127,25 +180,37 @@ namespace Base
       {
         assert(size >= count_);
         if (size_ == size) return;
-        size_ = size;
-        T* newItems = new T[size_];
-        for (off_t i = 0; i < (ssize_t)count_; ++i)
-          newItems[i] = items_[i];
-        delete[] items_;
+        T* newItems = (T*)malloc(sizeof(T) * size);
+        if (newItems == nullptr)
+          throw std::bad_alloc();
+        for (off_t i = 0; i < (ssize_t)count_; ++i) {
+          try {
+            new (&newItems[i])T(items_[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              newItems[j].~T();
+            free(newItems);
+            throw;
+          }
+        }
+        for (off_t i = 0; i < (ssize_t)count_; i++)
+          items_[i].~T();
+        free(items_);
         items_ = newItems;
+        size_ = size;
       }
 
       T& operator[] (off_t index) const
       {
         assert(index < (ssize_t)count_);
-	assert(index >= -(ssize_t)count_);
-	if (index < 0)
-	  return items_[count_ + index];
-	else
+        assert(index >= -(ssize_t)count_);
+        if (index < 0)
+          return items_[count_ + index];
+        else
           return items_[index];
       }
 
-      ListIter<T> Iter() const
+      ListIter<T> iter() const
       {
         return ListIter<T>(*this);
       }
@@ -178,29 +243,23 @@ namespace Base
 
       ~List()
       {
-        delete[] items_;
+        for (off_t i = 0; i < (ssize_t)count_; i++)
+          items_[i].~T();
+        free(items_);
       }
 
     private:
+      friend class ListIter<T>;
+
       T* items_;
       size_t count_;
       size_t size_;
 
       void minSize(size_t size)
       {
-        if (items_ == nullptr)
-        {
-          size_ = size;
-          items_ = new T[size_];
-        }
-        else if (size_ < size)
-        {
-          size_ = std::max<size_t>(size, size_ * 2);
-          T* newItems = new T[size_];
-          for (off_t i = 0; i < (ssize_t)count_; ++i)
-            newItems[i] = items_[i];
-          delete[] items_;
-          items_ = newItems;
+        if (items_ == nullptr || size_ < size) {
+          size = std::max<size_t>(size, size_ * 2 + 1);
+          this->size(size);
         }
       }
   };
@@ -210,12 +269,25 @@ namespace Base
     public:
       off_t i;
 
-      ListIter(T const& lst) :
+      ListIter(List<T> const& lst) :
         i(0),
         lst_(&lst) 
       {}
+
+      bool valid() {
+        return i < (ssize_t)lst_->count_;
+      }
+
+      T &value() {
+        assert(i < (ssize_t)lst_->count_);
+        return lst_->items_[i];
+      }
+
+      void next() {
+        i++;
+      }
     private:
-      List<T> lst_;
+      List<T> const* lst_;
   };
 }
 

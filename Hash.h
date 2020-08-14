@@ -22,23 +22,23 @@
 namespace Base
 {
   template<typename T>
-  int getHash(T const& value)
+  int hash(T const& value)
   {
-    return value.getHash();
+    return value.hash();
   }
 
   template<>
-  int getHash<uint32_t>(uint32_t const& value);
+  int hash<uint32_t>(uint32_t const& value);
   template<>
-  int getHash<int32_t>(int32_t const& value);
+  int hash<int32_t>(int32_t const& value);
   template<>
-  int getHash<uint16_t>(uint16_t const& value);
+  int hash<uint16_t>(uint16_t const& value);
   template<>
-  int getHash<int16_t>(int16_t const& value);
+  int hash<int16_t>(int16_t const& value);
   template<>
-  int getHash<uint8_t>(uint8_t const& value);
+  int hash<uint8_t>(uint8_t const& value);
   template<>
-  int getHash<int8_t>(int8_t const& value);
+  int hash<int8_t>(int8_t const& value);
 
   class Hash {
 

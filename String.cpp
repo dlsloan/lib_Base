@@ -205,7 +205,7 @@ String String::rtrim()
 {
   if (length_ == 0 || !Char::isWhitespace((*this)[-1]))
     return *this;
-  for (off_t i = -1; i > 0; i--) {
+  for (off_t i = -1; i > -(ssize_t)length_; i--) {
     if (!Char::isWhitespace((*this)[i]))
       return this->substring(0, length_ + i + 1);
   }
@@ -240,7 +240,7 @@ off_t String::indexOf(const char* str) {
   size_t len = strlen(str);
   if (len == 0)
     return 0;
-  for (off_t i = 0; i < (ssize_t)(length_ - len); i++) {
+  for (off_t i = 0; i <= (ssize_t)(length_ - len); i++) {
     if ((*this)[i] == str[0]) {
       bool found = true;
       for (off_t j = 0; j < (ssize_t)len; j++) {
@@ -260,20 +260,20 @@ off_t String::indexOfR(const char* str) {
   size_t len = strlen(str);
   if (len == 0)
     return -1;
-  for (off_t i = -1; i >= (ssize_t)length_; i--) {
-    if ((*this)[i] == str[len + i]) {
+  for (off_t i = -1; i >= -(ssize_t)length_; i--) {
+    if ((*this)[i] == str[len - 1]) {
       bool found = true;
-      for (off_t j = 0; j < (ssize_t)len; j++) {
-        if ((*this)[i-j] == str[len-j-1]) {
+      for (off_t j = 1; j < (ssize_t)len; j++) {
+        if ((*this)[i-j] == str[len-j]) {
           found = false;
-	  break;
-	}
+	        break;
+	      }
       }
       if (found)
-        return i;
+        return length_ + i - len + 1;
     }
   }
-  return 0;
+  return -1;
 }
 
 List<String> String::split(char const* separator) const
@@ -396,7 +396,7 @@ size_t String::length() const
   return length_;
 }
 
-int String::getHash() const
+int String::hash() const
 {
   int hash = 0;
   for (off_t i = 0; i < (ssize_t)this->length(); i++) {

@@ -74,7 +74,7 @@ namespace Base {
       void copyTo(char* charBuffer) const;
       String toString() const override { return *this; }
 
-      int getHash() const;
+      int hash() const;
 
       String operator+(String const& value) const;
       String operator+(char const* value) const;

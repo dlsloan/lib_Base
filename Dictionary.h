@@ -46,18 +46,39 @@ namespace Base {
     {
       assert(tableSize_ > 0);
       table_ = new Node*[tableSize_];
-      for (uint64_t i = 0; i < tableSize_; ++i)
+      for (off_t i = 0; i < (ssize_t)tableSize_; ++i)
         table_[i] = nullptr;
+    }
+
+    Dictionary(Dictionary<T_Key, T_Value> const& dict) :
+      count_(0),
+      tableSize_(dict.count() < 4 ? 4 : dict.count()),
+      table_(nullptr)
+    {
+      
+      assert(tableSize_ > 0);
+      table_ = new Node*[tableSize_];
+      for (off_t i = 0; i < (ssize_t)tableSize_; ++i)
+        table_[i] = nullptr;
+
+      for (auto it = dict.iter(); it.valid(); it.next()) {
+        add(it.value().key, it.value().value);
+      }
+    }
+    
+    Dictionary<T_Key, T_Value>& operator= (Dictionary<T_Key, T_Value> const& dict)
+    {
+      this->~Dictionary<T_Key, T_Value>();
+      new(this)Dictionary<T_Key, T_Value>(dict);
+      return *this;
     }
 
     void add(T_Key const& key, T_Value const& value)
     {
       if (count_ == tableSize_)
-      {
-        setMinSize(count_ * 2);
-      }
+        minSize(count_ * 2);
 
-      int hashValue = getHash<T_Key>(key);
+      int hashValue = hash<T_Key>(key);
       off_t index = static_cast<off_t>(hashValue) % tableSize_;
       Node* node = table_[index];
       while(node != nullptr)
@@ -76,23 +97,18 @@ namespace Base {
 
     void remove(T_Key const& key)
     {
-      int hashValue = getHash<T_Key>(key);
+      int hashValue = hash<T_Key>(key);
       off_t index = static_cast<off_t>(hashValue) % tableSize_;
       Node* node = table_[index];
       Node* prev = nullptr;
-      while(node != nullptr)
-      {
-        if(node->key == key)
-        {
-          if (prev == nullptr)
-          {
+      while(node != nullptr) {
+        if(node->key == key) {
+          if (prev == nullptr) {
             table_[index] = node->next;
             delete node;
             count_ -= 1;
             return;
-          }
-          else
-          {
+          } else {
             prev->next = node->next;
             delete node;
             count_ -= 1;
@@ -106,12 +122,12 @@ namespace Base {
       assert(false);
     }
 
-    bool containsKey(T_Key const& key) const {
-      int hashValue = getHash<T_Key>(key);
+    bool containsKey(T_Key const& key) const
+    {
+      int hashValue = hash<T_Key>(key);
       off_t index = static_cast<off_t>(hashValue) % tableSize_;
       Node* node = table_[index];
-      while(node != nullptr)
-      {
+      while(node != nullptr) {
         if(node->key == key)
           return true;
         node = node->next;
@@ -128,31 +144,26 @@ namespace Base {
       for (off_t i = 0; i < (ssize_t)tableSize_; i++) {
         if (table_[i] != nullptr) {
           Node* node = table_[i];
-	  while (node != nullptr) {
-            keys_ret.add(node->key);
-            node = node->next;
-	  }
-	}
+          while (node != nullptr) {
+                  keys_ret.add(node->key);
+                  node = node->next;
+          }
+        }
       }
       return keys_ret;
     }
 
     T_Value& operator[] (T_Key const& key) const
     {
-      int hashValue = getHash<T_Key>(key);
+      int hashValue = hash<T_Key>(key);
       off_t index = static_cast<off_t>(hashValue) % tableSize_;
       Node* node = table_[index];
-      while(node != nullptr)
-      {
+      while(node != nullptr) {
         if(node->key == key)
-          return node->value;
+          break;
         node = node->next;
       }
-      node = new Node{
-        table_[index],
-        key
-      };
-      table_[index] = node;
+      assert(node != nullptr);
       return node->value;
     }
 
@@ -172,6 +183,7 @@ namespace Base {
           node = next;
         }
       }
+      delete[] table_;
     }
 
   private:
@@ -187,11 +199,10 @@ namespace Base {
 
     friend class DictionaryIter<T_Key, T_Value>;
 
-    void setMinSize(size_t size)
+    void size(size_t size)
     {
-      if (tableSize_ >= size)
-        return;
-      
+      assert(size >= count_);
+
       Node** newTable = new Node*[size];
       for (off_t i = 0; i < (ssize_t)size; ++i)
         newTable[i] = nullptr;
@@ -201,7 +212,7 @@ namespace Base {
         Node* node = table_[i];
         while(node != nullptr)
         {
-          int hashValue = getHash<T_Key>(node->key);
+          int hashValue = hash<T_Key>(node->key);
           off_t index = static_cast<off_t>(hashValue) % size;
           Node* next = node->next;
           node->next = newTable[index];
@@ -209,8 +220,16 @@ namespace Base {
           node = next;
         }
       }
-      delete table_;
+      delete[] table_;
       table_ = newTable;
+      tableSize_ = size;
+    }
+
+    void minSize(size_t size)
+    {
+      if (tableSize_ >= size)
+        return;
+      this->size(size);
     }
   };
 

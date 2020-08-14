@@ -33,9 +33,19 @@ namespace Base
         first_(0)
       {
         assert(items != nullptr);
-        items_ = new T[size_];
-        for (off_t i = 0; i < count; ++i)
-          items_[i] = items[i];
+        items_ = (T*)malloc(sizeof(T) * size_);
+        if (items_ == nullptr)
+          throw std::bad_alloc();
+        for (off_t i = 0; i < count; ++i) {
+          try {
+            new (&items_[i])T(items[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              items_[i].~T();
+            free(items_);
+            throw;
+          }
+        }
       }
 
       Queue(size_t containerSize = 0) :
@@ -44,8 +54,11 @@ namespace Base
         size_(containerSize),
         first_(0)
       {
-        if (size_ > 0)
-          items_ = new T[size_];
+        if (size_ > 0) {
+          items_ = (T*)malloc(sizeof(T) * size_);
+          if (items_ == nullptr)
+            throw std::bad_alloc();
+        }
       }
 
       Queue(Queue<T> const& value) :
@@ -54,9 +67,19 @@ namespace Base
         size_(value.size_),
         first_(value.first_)
       {
-        items_ = new T[size_];
-        for (off_t i = 0; i < count_; ++i)
-          items_[i] = value[i];
+        items_ = (T*)malloc(sizeof(T) * size_);
+        if (items_ == nullptr)
+          throw std::bad_alloc();
+        for (off_t i = 0; i < count; ++i) {
+          try {
+            new (&items_[i])T(value[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              items_[i].~T();
+            free(items_);
+            throw;
+          }
+        }
       }
 
       Queue(List<T> const& value) :
@@ -65,50 +88,98 @@ namespace Base
         size_(value.getSize()),
         first_(0)
       {
-        items_ = new T[size_];
-        for (off_t i = 0; i < count_; ++i)
-          items_[i] = value[i];
+        items_ = (T*)malloc(sizeof(T) * size_);
+        if (items_ == nullptr)
+          throw std::bad_alloc();
+        for (off_t i = 0; i < count; ++i) {
+          try {
+            new (&items_[i])T(value[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              items_[i].~T();
+            free(items_);
+            throw;
+          }
+        }
       }
 
       Queue<T>& operator= (Queue<T> const& value)
       {
-        setMinSize(value.count_);
-        first_ = 0;
-        for (off_t i = 0; i < value.count_; ++i)
-          items_[i] = value[i];
+        off_t i;
+
+        minSize(value.count_);
+        for (i = 0; i < (ssize_t)count_ && i < (ssize_t)value.count_; ++i) {
+          off_t ind = (first_ + i) % size_;
+          items_[ind] = value[i];
+        }
+        for (; i < (ssize_t)value.count_; i++) {
+          off_t ind = (first_ + i) % size_;
+          try {
+            new (&items_[ind])T(value[i]);
+          } catch (...) {
+            for (off_t j = count_; j < i; j++) {
+              ind = (first_ + j) % size_;
+              items_[ind].~T();
+            }
+            throw;
+          }
+        }
+        for (;i < (ssize_t)count_; i++) {
+          off_t ind = (first_ + i) % size_;
+          items_[ind].~T();
+        }
         count_ = value.count_;
         return *this;
       }
 
       void enqueue(T const& item)
       {
-        setMinSize(count_ + 1);
-        off_t pos = first_ + (count_++);
+        minSize(count_ + 1);
+        off_t pos = first_ + count_;
         if (pos >= (ssize_t)size_) pos -= size_;
-        items_[pos] = item;
+        new(&items_[pos])T(item);
+        count_++;
       }
 
       void enqueue(T const* items, size_t count = 1)
       {
         assert(items != nullptr);
-        setMinSize(count_ + count);
+        minSize(count_ + count);
         for (off_t i = 0; i < count; ++i)
         {
           off_t pos = first_ + i + count_;
           if (pos >= size_) pos -= size_;
-          items_[pos] = items[i];
+          try {
+            new(&items_[pos])T(items[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++) {
+              pos = first_ + j + count_;
+              if (pos >= size_) pos -= size_;
+              items_[pos].~T();
+            }
+            throw;
+          }
         }
         count_ += count;
       }
 
       void enqueue(List<T> const& items)
       {
-        setMinSize(count_ + items.getCount());
-        for (off_t i = 0; i < items.getCount(); ++i)
+        minSize(count_ + items.count());
+        for (off_t i = 0; i < items.count(); ++i)
         {
           off_t pos = first_ + i + count_;
           if (pos >= size_) pos -= size_;
-          items_[pos] = items[i];
+          try {
+            new(&items_[pos])T(items[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++) {
+              pos = first_ + j + count_;
+              if (pos >= size_) pos -= size_;
+              items_[pos].~T();
+            }
+            throw;
+          }
         }
         count_ += items.getCount();
       }
@@ -117,6 +188,7 @@ namespace Base
       {
         assert(count_ > 0);
         T val = items_[first_];
+        items_[first_].~T();
         first_ += 1;
         if (first_ >= (ssize_t)size_) first_ = 0;
         count_ -= 1;
@@ -136,6 +208,10 @@ namespace Base
         size_t len = std::min(count, size_ - first_);
         list.add(items_ + first_, len);
         list.add(items_, count - len);
+        for (off_t i = 0; i < count; i++) {
+          off_t pos = (i + first_) % size_;
+          items_[pos].~T();
+        }
         first_ += count;
         if (first_ >= size_) first_ -= size_;
         count_ -= count;
@@ -155,12 +231,24 @@ namespace Base
       {
         assert(size >= count_);
         if (size_ == size) return;
-        size_ = size;
-        T* newItems = new T[size_];
-        for (off_t i = 0; i < count_; ++i)
-          newItems[i] = (*this)[i];
-        delete[] items_;
+        T* newItems = (T*)malloc(sizeof(T) * size);
+        if (newItems == nullptr)
+          throw std::bad_alloc();
+        for (off_t i = 0; i < (ssize_t)count_; ++i) {
+          try {
+            new (&newItems[i])T((*this)[i]);
+          } catch (...) {
+            for (off_t j = 0; j < i; j++)
+              newItems[j].~T();
+            free(newItems);
+            throw;
+          }
+        }
+        for (off_t i = 0; i < (ssize_t)count_; i++)
+          items_[i].~T();
+        free(items_);
         items_ = newItems;
+        size_ = size;
         first_ = 0;
       }
 
@@ -200,7 +288,9 @@ namespace Base
 
       ~Queue()
       {
-        delete[] items_;
+        for (off_t i = 0; i < (ssize_t)count_; i++)
+          items_[i].~T();
+        free(items_);
       }
 
     private:
@@ -209,22 +299,11 @@ namespace Base
       size_t size_;
       off_t first_;
 
-      void setMinSize(uint64_t size)
+      void minSize(uint64_t size)
       {
-        if (items_ == nullptr)
-        {
-          size_ = size;
-          items_ = new T[size_];
-        }
-        else if (size_ < size)
-        {
-          size_ = std::max(size, size_ * 2);
-          T* newItems = new T[size_];
-          for (uint64_t i = 0; i < count_; ++i)
-            newItems[i] = (*this)[i];
-          delete[] items_;
-          first_ = 0;
-          items_ = newItems;
+        if (items_ == nullptr || size_ < size) {
+          size = std::max<size_t>(size, size_ * 2 + 1);
+          this->size(size);
         }
       }
   };
