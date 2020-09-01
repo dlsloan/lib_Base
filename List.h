@@ -258,7 +258,7 @@ namespace Base
       void minSize(size_t size)
       {
         if (items_ == nullptr || size_ < size) {
-          size = std::max<size_t>(size, size_ * 2 + 1);
+          size = std::max<size_t>(size, size_ + size_ / 2 + 1);
           this->size(size);
         }
       }

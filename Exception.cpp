@@ -16,36 +16,53 @@
 
 #include "Base/Exception.h"
 #include <string.h>
+#include <string>
 
 using namespace Base;
+using namespace std;
 
-Exception::Exception(char const* msg)
-{
-  msg_ = msg;
-}
-
-Exception::Exception(String const& msg)
-{
-  msg_ = msg;
-}
+#ifdef NDEBUG
+Exception::Exception(int err) :
+  err_(err)
+{}
     
-Exception::Exception(Exception const& err)
-{
-  msg_ = err.msg_;
-}
+Exception::Exception(Exception const& err) :
+  err_(err.err_)
+{}
 
 Exception& Exception::operator= (Exception const& err)
 {
-  msg_ = err.msg_;
+  err_ = err.err_;
   return *this;
-}
-
-String Exception::message() const
-{
-  return msg_;
 }
 
 String Exception::toString() const
 {
-  return msg_;
+  return strerrno(err_);
 }
+#else
+Exception::Exception(int err, const char *file, int line) :
+  err_(err),
+  file_(file),
+  line_(line)
+{}
+    
+Exception::Exception(Exception const& err) :
+  err_(err.err_),
+  file_(err.file_),
+  line_(err.line_)
+{}
+
+Exception& Exception::operator= (Exception const& err)
+{
+  err_ = err.err_;
+  file_ = err.file_;
+  line_ = err.line_;
+  return *this;
+}
+
+String Exception::toString() const
+{
+  return String(strerror(err_)) + " @ " + file_ + ":" + to_string(line_).c_str();
+}
+#endif

@@ -22,6 +22,7 @@
 #include <assert.h>
 
 using namespace Base;
+using namespace std;
 
 static char const* empty = "";
 
@@ -32,8 +33,9 @@ String::String(char const* value) :
 {
   length_ = strlen(value);
   size_ = length_ + 1;
-  chars_ = new char[size_];
-  memcpy(chars_, value, length_);
+  chars_ = unique_ptr<char[]>(new char[size_]);
+  assert(length_ < size_);
+  memcpy(chars_.get(), value, length_);
   chars_[length_] = '\0';
 }
 
@@ -51,9 +53,9 @@ String::String(String const& value) :
   size_(value.length_ + 1)
 {
   //make copies for objects in other threads
-  chars_ = new char[size_];
-  memcpy(chars_, value.chars_, length_);
-  chars_[length_] = '\0';
+  chars_ = unique_ptr<char[]>(new char[size_]);
+  assert(length_ <= size_);
+  memcpy(chars_.get(), value.chars_.get(), length_);
 }
 
 String::String(char const* inner, size_t len) :
@@ -61,8 +63,9 @@ String::String(char const* inner, size_t len) :
   length_(len),
   size_(len + 1)
 {
-  chars_ = new char[size_];
-  memcpy(chars_, inner, len);
+  chars_ = unique_ptr<char[]>(new char[size_]);
+  assert(length_ < size_);
+  memcpy(chars_.get(), inner, len);
   chars_[length_] = '\0';
 }
 
@@ -71,10 +74,11 @@ String::String(char const* inner1, size_t len1, char const* inner2, size_t len2)
   length_(len1 + len2),
   size_(len1 + len2 + 1)
 {
-  chars_ = new char[size_];
+  chars_ = unique_ptr<char[]>(new char[size_]);
+  assert(length_ < size_);
   if (inner1 != nullptr)
-    memcpy(chars_, inner1, len1);
-  memcpy(chars_ + len1, inner2, len2);
+    memcpy(chars_.get(), inner1, len1);
+  memcpy(chars_.get() + len1, inner2, len2);
   chars_[length_] = '\0';
 }
 
@@ -86,10 +90,11 @@ String::String(char const* inner1, char const* inner2, size_t len2) :
   size_t len1 = strlen(inner1);
   length_ += len1;
   size_ += len1;
-  chars_ = new char[size_];
+  chars_ = unique_ptr<char[]>(new char[size_]);
+  assert(length_ < len1 + len2);
   if (inner1 != nullptr)
-    memcpy(chars_, inner1, len1);
-  memcpy(chars_ + len1, inner2, len2);
+    memcpy(chars_.get(), inner1, len1);
+  memcpy(chars_.get() + len1, inner2, len2);
   chars_[length_] = '\0';
 }
 
@@ -98,7 +103,7 @@ String String::substring(off_t index) const
   assert(index <= (ssize_t)length_);
   if (index == (ssize_t)length_)
     return String("");
-  return String(chars_ + index, length_ - index);
+  return String(chars_.get() + index, length_ - index);
 }
 
 String String::substring(off_t index, size_t length) const
@@ -109,7 +114,7 @@ String String::substring(off_t index, size_t length) const
     return String("");
   else if (length == length_)
     return *this;
-  return String(chars_ + index, length);
+  return String(chars_.get() + index, length);
 }
 
 bool String::contains(String const& value) const
@@ -118,7 +123,7 @@ bool String::contains(String const& value) const
     return true;
   for (off_t i = 0; i <= (ssize_t)length_ - (ssize_t)value.length_; ++i)
   {
-    if (partEq(chars_ + i, value.chars_, value.length_))
+    if (partEq(chars_.get() + i, value.chars_.get(), value.length_))
       return true;
   }
   return false;
@@ -133,7 +138,7 @@ bool String::contains(char const* value) const
   if (len > (ssize_t)length_) return false;
   for (off_t i = 0; i <= (ssize_t)length_ - (ssize_t)len; ++i)
   {
-    if (partEq(chars_ + i, value, len))
+    if (partEq(chars_.get() + i, value, len))
       return true;
   }
   return false;
@@ -158,7 +163,7 @@ String String::replace(char const* find, char const* replace) const
   String ret;
   for (off_t i = 0; i < (ssize_t)length_; ++i)
   {
-    if (i <= (ssize_t)length_ - findLen && partEq(chars_ + i, find, findLen))
+    if (i <= (ssize_t)length_ - findLen && partEq(chars_.get() + i, find, findLen))
     {
       ret += replace;
       i += findLen - 1;
@@ -177,7 +182,7 @@ String String::replace(String const& find, String const& replace) const
   String ret;
   for (off_t i = 0; i < (ssize_t)length_; ++i)
   {
-    if (i <= (ssize_t)length_ - (ssize_t)find.length_ && partEq(chars_ + i, find.chars_, find.length_))
+    if (i <= (ssize_t)length_ - (ssize_t)find.length_ && partEq(chars_.get() + i, find.chars_.get(), find.length_))
     {
       ret += replace;
       i += find.length_ - 1;
@@ -285,7 +290,7 @@ List<String> String::split(char const* separator) const
   String part;
   for (off_t i = 0; i < (ssize_t)length_; i++)
   {
-    if (i <= (ssize_t)length_ - (ssize_t)sepLen && partEq(chars_ + i, separator, sepLen))
+    if (i <= (ssize_t)length_ - (ssize_t)sepLen && partEq(chars_.get() + i, separator, sepLen))
     {
       ret += part;
       part = "";
@@ -307,7 +312,7 @@ List<String> String::split(String const& separator) const
   String part;
   for (off_t i = 0; i < (ssize_t)length_; i++)
   {
-    if (i <= (ssize_t)length_ - (ssize_t)separator.length_ && partEq(chars_ + i, separator.chars_, separator.length_))
+    if (i <= (ssize_t)length_ - (ssize_t)separator.length_ && partEq(chars_.get() + i, separator.chars_.get(), separator.length_))
     {
       ret += part;
       part = "";
@@ -382,13 +387,13 @@ void String::copyTo(char* charBuffer) const
   }
   else
   {
-    memcpy(charBuffer, chars_, length_ + 1);
+    memcpy(charBuffer, chars_.get(), length_ + 1);
   }
 }
 
 char const* String::c_str() const
 {
-  return chars_ == nullptr ? empty : chars_;
+  return chars_ == nullptr ? empty : chars_.get();
 }
 
 size_t String::length() const
@@ -410,13 +415,13 @@ String& String::operator= (String const& value)
 {
   if (value.length_ + 1 > size_)
   {
-    if (chars_ != nullptr)
-      delete[] chars_;
     size_ = value.length_ + 1;
-    chars_ = new char[size_];
+    chars_ = unique_ptr<char[]>(new char[size_]);
   }
   length_ = value.length_;
-  memcpy(chars_, value.chars_, length_);
+  assert(length_ < size_);
+  assert(length_ <= value.length_);
+  memcpy(chars_.get(), value.chars_.get(), length_);
   chars_[length_] = '\0';
   return *this;
 }
@@ -426,31 +431,30 @@ String& String::operator= (char const* value)
   ssize_t len = strlen(value);
   if (len + 1 > (ssize_t)size_)
   {
-    if (chars_ != nullptr)
-      delete[] chars_;
     size_ = len + 1;
-    chars_ = new char[size_];
+    chars_ = unique_ptr<char[]>(new char[size_]);
   }
   length_ = len;
-  memcpy(chars_, value, len);
+  assert(length_ < size_);
+  memcpy(chars_.get(), value, len);
   chars_[length_] = '\0';
   return *this;
 }
 
 String String::operator+(String const& value) const
 {
-  return String(chars_, length_, value.chars_, value.length_);
+  return String(chars_.get(), length_, value.chars_.get(), value.length_);
 }
 
 String String::operator+(char const* value) const
 {
   assert(value != nullptr);
-  return String(chars_, length_, value, strlen(value));
+  return String(chars_.get(), length_, value, strlen(value));
 }
 
 String String::operator+(char value) const
 {
-  return String(chars_, length_, &value, 1);
+  return String(chars_.get(), length_, &value, 1);
 }
       
 String& String::operator+= (String const& value)
@@ -458,15 +462,16 @@ String& String::operator+= (String const& value)
   if (size_ < length_ + value.length_ + 1)
   {
     size_ = std::max<size_t>(size_ * 2, length_ + value.length_ + 1);
-    char* newChars = new char[size_];
+    unique_ptr<char[]> newChars(new char[size_]);
     if (chars_ != nullptr)
     {
-      memcpy(newChars, chars_, length_);
-      delete[] chars_;
+      assert(size_ >= length_);
+      memcpy(newChars.get(), chars_.get(), length_);
     }
-    chars_ = newChars;
+    chars_ = std::move(newChars);
   }
-  memcpy(chars_ + length_, value.chars_, value.length_);
+  assert(size_ > length_ + value.length_);
+  memcpy(chars_.get() + length_, value.chars_.get(), value.length_);
   length_ += value.length_;
   chars_[length_] = '\0';
   return *this;
@@ -479,15 +484,16 @@ String& String::operator+= (char const* value)
   if (size_ < length_ + addLength + 1)
   {
     size_ = std::max<size_t>(size_ * 2, length_ + addLength + 1);
-    char* newChars = new char[size_];
+    unique_ptr<char[]> newChars(new char[size_]);
     if (chars_ != nullptr)
     {
-      memcpy(newChars, chars_, length_);
-      delete[] chars_;
+      assert(size_ >= length_);
+      memcpy(newChars.get(), chars_.get(), length_);
     }
-    chars_ = newChars;
+    chars_ = std::move(newChars);
   }
-  memcpy(chars_ + length_, value, addLength);
+  assert(size_ > length_ + addLength);
+  memcpy(chars_.get() + length_, value, addLength);
   length_ += addLength;
   chars_[length_] = '\0';
   return *this;
@@ -498,14 +504,15 @@ String& String::operator+= (char value)
   if (size_ < length_ + 2)
   {
     size_ = std::max<size_t>(size_ * 2, length_ + 2);
-    char* newChars = new char[size_];
+    unique_ptr<char[]> newChars(new char[size_]);
     if (chars_ != nullptr)
     {
-      memcpy(newChars, chars_, length_);
-      delete[] chars_;
+      assert(size_ > length_);
+      memcpy(newChars.get(), chars_.get(), length_);
     }
-    chars_ = newChars;
+    chars_ = std::move(newChars);
   }
+  assert(size_ > length_ + 1);
   chars_[length_++] = value;
   chars_[length_] = '\0';
   return *this;
@@ -556,9 +563,4 @@ char String::operator[] (const off_t index) const
     return chars_[length_ + index];
   else
     return chars_[index];
-}
-
-String::~String()
-{
-  delete[] chars_;
 }

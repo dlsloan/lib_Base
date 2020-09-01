@@ -20,6 +20,8 @@
 #include "Base/List.h"
 #include "Base/compat/stdint.h"
 
+#include <memory>
+
 namespace Base {
   class String;
 
@@ -39,8 +41,6 @@ namespace Base {
       String(String const&);
       String& operator= (String const&);
       String& operator= (char const*);
-
-      ~String();
 
       String substring(off_t index) const;
       String substring(off_t index, size_t length) const;
@@ -81,7 +81,7 @@ namespace Base {
       String operator+(char value) const;
       friend String operator+(char const* lhs, String const& rhs)
       {
-	      return String(lhs, rhs.chars_, rhs.length_);
+	      return String(lhs, rhs.chars_.get(), rhs.length_);
       }
 
       String& operator+= (String const& value);
@@ -96,7 +96,7 @@ namespace Base {
       char operator[] (const off_t index) const;
 
     private:
-      char* chars_;
+      std::unique_ptr<char[]> chars_;
       size_t length_;
       size_t size_;
 
