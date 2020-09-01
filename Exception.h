@@ -22,9 +22,9 @@
 #include <string>
 
 #ifdef NDEBUG
-  #define throw_err(val) throw Base::Exception(val);
+  #define throw_err(val) throw Base::Exception(val)
 #else
-  #define throw_err(val) throw Base::Exception(val, __FILE__, __LINE__);
+  #define throw_err(val) throw Base::Exception(val, __FILE__, __LINE__)
 #endif // !NDEBUG
 
 #define throw_errno {   \
