@@ -75,6 +75,8 @@ namespace Base {
 
     void add(T_Key const& key, T_Value const& value)
     {
+      assert(!containsKey(key));
+
       if (count_ == tableSize_)
         minSize(count_ * 2);
 
